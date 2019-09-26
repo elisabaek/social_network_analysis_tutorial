@@ -37,7 +37,7 @@ As we discussed in the main text of the paper, we can represent a network in dif
 Let's load the adjacency matrix of our artificial data. 
 
 ```{r}
-adj_mat <- read.csv("https://raw.githubusercontent.com/elisabaek/SCAN_social_network_tutorial/master/adjacency_matrix.csv",
+adj_mat <- read.csv("https://raw.githubusercontent.com/elisabaek/social_network_analysis_tutorial/master/adjacency_matrix.csv",
                     header=TRUE,sep=',', row.names = 1,check.names=FALSE) #read in file
 adj_mat <- as.matrix(adj_mat) #convert to matrix
 ```
