@@ -1,0 +1,730 @@
+---
+title: "Tutorial for 'Social Network Analysis for Social Neuroscientists'"
+author: "This tutorial accompanies the paper 'Social Network Analysis for Social Neuroscientists' by Elisa C. Baek, Mason A. Porter, and Carolyn Parkinson"
+output:
+  html_document: 
+    encoding: UTF-8
+    number_sections: yes
+    smart: no
+    toc: yes
+    toc_float: yes
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+---
+
+# Introduction
+
+In this tutorial, we go through some key concepts that we discussed in the main text of the paper through an example of an artificial network of a freshman dorm (with _n_ = 50 people). Suppose that we obtained this data by asking participants to identify their friends using a roster-based approach. The result is a network with directed edges, because (as we will see) not all friendship nominations are reciprocated. We use the igraph package for this tutorial and visNetwork for visualization.
+
+We use the terms "node" and "vertex" interchangeably in this tutorial. We also use the terms "network" and "graph" interchangeably. The igraph package uses "V" to denote nodes (i.e., vertices).
+
+First, we load the necessary packages.
+
+```{r}
+library(igraph)
+library(visNetwork)
+```
+
+# Mathematical Representations
+
+As we discussed in the main text of the paper, we can represent a network in different ways. We go over some of the ways in this section of the tutorial.
+
+## Adjacency Matrix
+
+Let's load the adjacency matrix of our artificial data. 
+
+```{r}
+adj_mat <- read.csv("https://raw.githubusercontent.com/elisabaek/SCAN_social_network_tutorial/master/adjacency_matrix.csv",
+                    header=TRUE,sep=',', row.names = 1,check.names=FALSE) #read in file
+adj_mat <- as.matrix(adj_mat) #convert to matrix
+```
+
+The adjacency matrix is an _n_ $\times$ _n_ matrix (so in our network, it is 50 $\times$ 50). To make it easier to see the structure of the adjacency matrix, let's look just at the relationship between 5 nodes (i.e., vertices). This represents 5 people in the network and the relationships between them.
+
+A 1 indicates that there is an edge from _i_ to _j_ (with _i_ $\rightarrow$ _j_). In directed networks such as this one, an edge from _i_ to _j_ does not necessarily imply that there is an edge from _j_ to _i_. Take a look, for instance, at Claire and Derek. Although there is no edge from Claire to Derek (i.e., Claire $\rightarrow$ Derek), there is an edge from Derek to Claire (i.e., Claire $\rightarrow$ Derek). This implies that Claire did not indicate that Derek is a friend, whereas Derek did indicate that Claire is a friend.
+
+Note additionally that the diagonal of this adjacency matrix consists of all 0s, because individuals were not allowed to indicate themselves as their own friend. 
+
+```{r}
+adj_mat[c(10:15), c(10:15)]
+```
+
+We next convert this adjacency matrix to a graph object.
+
+```{r}
+graph <- graph.adjacency(adj_mat, mode="directed", weighted=NULL)
+```
+
+Let's take a look at the graph.
+
+```{r}
+graph
+```
+
+This shows that there are 50 nodes and 745 edges that connect the nodes. The "DN" that precedes these numbers indicates that the network includes directed edges (D) and that the nodes are named (N).
+
+## Edge list
+
+We can also represent the network using an edge list, a list of node pairs that are connected directly by edges.
+
+```{r}
+edge_list <- as_edgelist(graph)
+head(edge_list)
+```
+
+## Nodes and edges
+
+We also easily retrieve the edges and nodes using the following commands.
+
+```{r}
+E(graph) #edges
+V(graph) #nodes
+```
+
+# Visualization
+
+Now let's visualize our network. 
+
+## Directed network
+
+Let's first visualize the network in a way that includes the directions of the edges.
+
+```{r}
+par(mar = c(0,0,0,0)) #this allows wider margins for the markdown output
+plot(graph)
+```
+
+As we see, the default parameters in igraph give a visualiation in which it is a bit hard to interpret our data. We can change this by adjusting a few settings.
+
+```{r}
+par(mar = c(0,0,0,0))
+V(graph)$size <- 3 #changes the size of the nodes
+E(graph)$arrow.size <- 0.1 #changes the size of the arrows
+E(graph)$width <- 0.5 #changes the width of the edges
+E(graph)$color <- "black" #changes the color of the edges
+
+plot(graph, vertex.label = NA) #graph without the nodes labeled
+```
+
+The new visualization of the network is a bit more helpful, and we may be able to notice some features of the network. For instance, we can see that there may be at least 2 dense communities in the network that potentially may represent friendship groups. We can also see that some nodes have many friends, whereas other nodes have few friends.
+
+We can also use visNetwork to make an interactive network visualization. Here are some useful things to note about using visNetwork:
+
+* You can zoom in and out of the network using your mouse; this allows you to take a closer look at the different parts of the network.
+* To select a node, you can either click on the node in the graph (this will select the corresponding name in the drop-down menu) or use the drop-down menu in the top-left corner (this will select the corresponding node in the graph).
+* When you select a node, the edges and other nodes to which that node is connected directly (i.e., "adjacent" in the graph) will also be highlighted. Our settings highlight only the nodes that are connected by a distance of 1 (i.e., connected directly to the node of interest), but you can change this in the code.
+
+```{r}
+# this helps us define the size of the nodes for better visualization -
+# we want all of the nodes to be the same size for now
+size <- rep(25,50)
+vertex_attr(graph)$size <- size
+
+visIgraph(graph) %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1), # you can specify the distance of ties that would be highlighted when clicking a node
+               nodesIdSelection = TRUE) %>%
+     visInteraction(keyboard = TRUE) 
+
+```
+
+## Undirected network (mutual edges only)
+
+We may also be interested in looking only at mutually reported friendships.
+
+```{r}
+graph_mutual <- as.undirected(graph, mode = "mutual")
+graph_mutual
+```
+
+We see that now there are only 224 edges, and the U indicates that it is an undirected network. Let's visualize this graph.
+
+```{r}
+par(mar = c(0,0,0,0))
+V(graph_mutual)$size <- 3 #changes the size of the nodes
+E(graph_mutual)$arrow.size <- 0.1 #changes the size of the arrows
+E(graph_mutual)$width <- 0.5 #changes the width of the edges
+E(graph_mutual)$color <- "black" #changes the color of the edges
+
+plot(graph_mutual, vertex.label = NA)
+```
+
+We can also use visNetwork to visualize the graph interactively. Recall that you can zoom in and out of the graph, as well as select a specific node by clicking on it in the graph or through the drop-down menu.
+
+```{r}
+size <- rep(25,50)
+vertex_attr(graph_mutual)$size <- size
+
+visIgraph(graph_mutual) %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1),
+               nodesIdSelection = TRUE) %>%
+     visInteraction(keyboard = TRUE)
+```
+
+It appears that there may be 3 different friendship groups and that one node (Derek) connects otherwise unconnected individuals, whereas other nodes may be well-connected, with a lot of friends. We can quantify this observation through various centrality measures, as discussed in the main text of the paper. Likewise, we can also use community-detection algorithms to quantify the different number of friendship groups that may exist in this social network. 
+
+## Some Notes About Visualizations
+
+It is important to note that although visualizations can be helpful in observing features of a social network, they can be misleading. Additionally, one can use different algorithms to visualize the same network. By default, igraph uses a function called "layout_nicely" to choose a visualization algorithm based on features of a graph.
+
+Let's try a few different algorithms to plot the undirected network of mutual edges in our example.
+
+First, we visualize the network using the default layout setting.
+
+```{r}
+par(mar = c(0,0,0,0))
+V(graph_mutual)$size <- 3 #changes the size of the nodes
+E(graph_mutual)$arrow.size <- 0.1 #changes the size of the arrows
+E(graph_mutual)$width <- 0.5 #changes the width of the edges
+E(graph_mutual)$color <- "black" #changes the color of the edges
+plot(graph_mutual, vertex.label = NA)
+```
+
+Let's now use a different layout algorithm that places the nodes of the network on a circle.
+
+```{r}
+par(mar = c(0,0,0,0))
+plot(graph_mutual, layout = layout_in_circle, vertex.label = NA)
+```
+
+Let's next try a layout algorithm that randomly places nodes.
+
+```{r}
+par(mar = c(0,0,0,0))
+plot(graph_mutual, layout = layout_randomly, vertex.label = NA)
+```
+
+As these examples demonstrate, the same network can look very different depending on the algorithm that we use. There appeared to be 3 different friendship groups in the first visualization of the network, but the latter two visualizations do not exhibit similar patterns. Accordingly, inferring characteristics of a network from visualizations alone can result in inaccurate perceptions of the network. Therefore, we recommend that researchers quantify network measures of interest and use visualizations as a complement to those calculated measures.
+
+# Centrality Measures
+
+As we discussed in the main body of the paper, there are mmany notions of centrality (i.e., importance) in a network. Different centrality measures are helpful for different questions, and it is important to select the measures that best fit your research questions.
+
+## Degree Centrality
+
+Let's start by calculating degree, the simplest measure of centrality.
+
+### Degree Centrality (using both in-degree and out-degree)
+
+We first look at degree (i.e., the number of direct connections of each node) in the directed graph in our example. Specifically, we calculate the sum of the in-degree and out-degree of each node. By sorting the degrees of the whole network, we can easily identify the individuals with the smallest and largest degrees.
+
+```{r}
+sort(degree(graph))
+```
+
+We see that Natalie is the person with the fewest connections, whereas Destiny has the most connections.
+
+We write a function to help visualize visualize the different degrees of different people by scaling node size by degree.
+
+```{r}
+scalenodes <- function(v,a,b){
+  v <- v-min(v)
+  v <- v/max(v)
+  v <- v*(b-a)
+  v+a
+}
+# set min and max node sizes
+min_size_node <- 1
+max_size_node <- 7
+```
+
+Let's scale the degree values and then visualize the graph.
+
+```{r}
+par(mar = c(0,0,0,0))
+nodesize_deg <- scalenodes(degree(graph),min_size_node,max_size_node)
+
+plot(graph,
+     vertex.size = nodesize_deg,
+     vertex.label = NA,
+     edge.color = "#00000088",
+     edge.curved = .2)
+```
+
+From visual inspection, we can probably guess that the largest node, which is located in the hairball-like cluster of nodes, is Destiny and that the tiny node off to the side is Natalie. Let's check this by labeling and changing the node color of only the nodes with the largest and smallest degree centralities. We do this with an "ifelse" statement in the line of the code in which we specify node labeling and node coloring. There are multiple ways to do this; we choose to set the label to NA for all of the nodes that lie between the smallest and largest degrees.
+
+```{r}
+par(mar = c(0,0,0,0))
+plot(graph,
+     vertex.size = nodesize_deg,
+     vertex.label = ifelse (
+       degree(graph) < max(degree(graph)) &
+         degree(graph) > min(degree(graph)), NA, V(graph)$name),
+     edge.color = "#C9C9C9",
+     vertex.color = ifelse (
+       degree(graph) < max(degree(graph)) &
+         degree(graph) > min(degree(graph)), "#FCCB51", "#C1F6BC"),
+     vertex.label.color = "#000000",
+     vertex.label.family = "Arial",
+     vertex.label.font = 2,
+     vertex.label.cex = 1,
+     edge.curved = .2)
+```
+
+We visualize this even more easily with our interactive graph. 
+
+```{r}
+#replace size of each node with its degree
+vertex_attr(graph)$size <- nodesize_deg*5
+
+visIgraph(graph) %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1),
+               nodesIdSelection = TRUE) %>%
+     visInteraction(keyboard = TRUE)
+```
+
+Click on the node that represents Destiny, and then click on the node that represents Natalie. Do you observe the stark difference when you compare what happens when you click on these two nodes? When you click on Destiny, only a small number of nodes fade to gray (i.e., most of the nodes  remain colored in blue, indicating that she is connected directly to many people), whereas when you click on Natalie, all but two nodes fade to gray. By clicking on the two nodes that remain colored in blue when we click on Natalie, we see that Natalie is connected directly to Destiny and Dylan. We also retrieve the degree of each individual with these lines of code.
+
+```{r}
+degree(graph, c("Destiny"))
+degree(graph, c("Natalie"))
+```
+
+Natalie's degree of 4 comes from the 2 edges that go out (Natalie $\rightarrow$ Destiny and Natalie $\rightarrow$ Dylan) and the 2 edges that come in (Destiny $\rightarrow$ Natalie and Dylan $\rightarrow$ Natalie).
+
+Throughout this tutorial, we will continue to label and color in green the node(s) with the largest and smallest centrality values. This will help us see how different centrality measures identify different nodes as important.
+
+### In-Degree Centrality
+
+What if we are interested in popularity, as quantified by how many people reported that they are friends with an individual? We can calculate this with in-degree, the number of edges that point to a node. Let's take a look at the in-degree centrality values, which we sort from smallest to largest.
+
+```{r}
+sort(degree(graph, mode = c("in")))
+```
+
+This has a similar pattern as what we observed by calculating degree by summing incoming (i.e., in-edge) and outgoing (i.e., out-edge) edges. With an in-degree centrality of 2, Natalie has the smallest number of people who reported being friends with her. (As we saw in the interactive graph above, these people are Destiny and Dylan.) Destiny has the largest number of people who reported being friends with her; she has an in-degree centrality value of 36. We also note Joshua, who has an in-degree centrality of 13 (as 13 people reported that they are friends with him). We will compare the centrality values of these 3 individuals in the next few sections.
+
+Let's now visualize our network by drawing only edges that point towards nodes, with node size representing the size of the in-degree centralities. We will also label and color in green the nodes with the largest and smallest in-degree centralities.
+
+```{r}
+nodesize_indegree <- scalenodes(degree(graph,mode = c("in")), min_size_node, max_size_node)
+
+par(mar = c(0,0,0,0))
+plot(graph,
+     vertex.size = nodesize_indegree,
+     vertex.label = ifelse(
+       degree(graph, mode = c("in")) < max(degree(graph,mode = c("in"))) & 
+         degree(graph, mode = c("in")) > min(degree(graph,mode = c("in"))), NA, V(graph)$name),
+     edge.color = "#C9C9C9",
+     vertex.color = ifelse (
+       degree(graph, mode = c("in")) < max(degree(graph, mode = c("in"))) &
+         degree(graph, mode = c("in")) > min(degree(graph, mode = c("in"))), "#FCCB51", "#C1F6BC"),
+     vertex.label.color = "#000000",
+     vertex.label.family = "Arial",
+     vertex.label.font = 2,
+     edge.curved = .2)
+```
+
+We again visualize the graph interactively. The node size in this interactive graph also reflects each individual node's in-degree centrality value. Note that the current version of the visNetwork package (version 2.0.8) does not does not allow the ability to highlight only in-edges or out-edges when clicking on a node. Therefore, when selecting Natalie's node, although the node size reflects her in-degree centrality value, you will see both in-edges and out-edges.
+
+```{r}
+#replace size of each node with its degree
+vertex_attr(graph)$size <- nodesize_indegree*5
+
+visIgraph(graph) %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1),
+               nodesIdSelection = TRUE) %>%
+     visInteraction(keyboard = TRUE)
+
+```
+
+Take another look at Destiny and Natalie; it should be pretty easy to identify these nodes based on their sizes. Take a look at Joshua as well (it is probably easiest to do so from the drop-down menu), and observe that there are 13 edges that point to his node.
+
+### Out-Degree Centrality
+
+We can also see how many times people were named by others as friends by calculating the out-degrees of the network. Let's first look at the out-degree values, which we sort from smallest to largest.
+
+```{r}
+sort(degree(graph, mode = c("out")))
+```
+
+Note that Natalie, Destiny, and Joshua all have the same out-degree as their in-degree (36, 2, and 13, respectively). We verify this observation by retrieving each individual's in-degree and out-degree values. 
+
+```{r}
+# Destiny's in-degree and out-degree
+degree(graph, mode = c("in"), c("Destiny"))
+degree(graph, mode = c("out"), c("Destiny"))
+
+# Natalie's in-degree and out-degree
+degree(graph, mode = c("in"), c("Natalie"))
+degree(graph, mode = c("out"), c("Natalie"))
+
+# Joshua's in-degree and out-degree
+degree(graph, mode = c("in"), c("Joshua"))
+degree(graph, mode = c("out"), c("Joshua"))
+```
+
+Because it is easy to visualize Natalie's direct connections (because she has only 2 friends), we already saw earlier that Natalie's in-degree and out-degree of 2 reflect her in-edges and out-edges with Destiny and Dylan.
+
+However, we also want to see whether whether something similar is true for Destiny and Joshua. It is possible that people who Joshua reported as his friends are not the same people who listed Joshua as a friend.
+
+Let's visualize the network again, but this time we'll draw just the out-edges. The size of the nodes reflect out-degree values, which correspond to the number of friends that each individual reported. We label and color in green the nodes with the smallest and largest out-degree centrality values.
+
+```{r}
+nodesize_outdegree <- scalenodes(degree(graph, mode = c("out")), min_size_node, max_size_node)
+
+par(mar = c(0,0,0,0))
+plot(graph,
+     vertex.size = nodesize_outdegree,
+     vertex.label = ifelse(
+       degree(graph, mode = c("out")) < max(degree(graph, mode = c("out"))) & 
+         degree(graph, mode = c("out")) > min(degree(graph, mode = c("out"))), NA, V(graph)$name),
+     edge.color = "#C9C9C9",
+     vertex.color = ifelse (
+       degree(graph, mode = c("out")) < max(degree(graph, mode = c("out"))) &
+         degree(graph, mode = c("out")) > min(degree(graph, mode = c("out"))), 
+           "#FCCB51", "#C1F6BC"),
+     vertex.label.color = "#000000",
+     vertex.label.family = "Arial",
+     vertex.label.font = 2,
+     edge.curved = .2)
+```
+
+We also visualize the network interactively. Recall that you can zoom in and out, and you can click on the nodes in the plot or through the drop-down menu. Take a look at Natalie, Destiny, and Joshua.
+
+```{r}
+#replace size of each node with its degree
+vertex_attr(graph)$size <- nodesize_outdegree*5
+
+visIgraph(graph) %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1), 
+               nodesIdSelection = TRUE) %>%
+     visInteraction(keyboard = TRUE)
+```
+
+### Degree Centrality (using only reciprocated edges)
+
+We now look at degree centrality by only using reciprocated edges (i.e., only counting a tie between two nodes if both nodes reported it). This lets us answer the question that we posed above about whether Joshua and Destiny's equal in-degree and out-degree values reflect reciprocated friendships.
+
+We start by looking at degree centrality values, which we sort from smallest to largest.
+
+```{r}
+sort(degree(graph_mutual))
+```
+
+Let's compare Destiny and Joshua's degree centrality values using only reciprocated edges with their degree centrality values using in-edges and out-edges.
+
+```{r}
+# Destiny's in-degree and out-degree
+degree(graph, mode = c("in"), c("Destiny"))
+degree(graph, mode = c("out"), c("Destiny"))
+
+# Destiny's degree centrality calculated from reciprocated edges only:
+degree(graph_mutual, c("Destiny"))
+
+# Joshua's in-degree and out-degree
+degree(graph, mode = c("in"), c("Joshua"))
+degree(graph, mode = c("out"), c("Joshua"))
+
+# Joshua's degree centrality calculated from reciprocated edges only:
+degree(graph_mutual, c("Joshua"))
+```
+
+We see that Destiny's degree centrality value from reciprocated edges equals both her in-degree and out-degree centrality values, so all of her friendships are reciprocated.
+
+By contrast, we see that even though Joshua has the same in-degree and out-degree centrality values of 13, his degree centrality value from reciprocated edges edges is 5. This seems to suggest that the majority of his friendships may be misaligned, in that the people who he listed as friends do not list him as a friend, and vice versa (which may be an interesting phenomenon in itself, in reference to cognitive social structures).
+
+We now visualize the network by drawing only reciprocated edges. The size of each node corresponds to its degree centrality calculated from reciprocated edges only. Similar to the previous examples, we label and color in green the individual nodes with the largest and smallest degree centrality values.
+
+```{r}
+nodesize_deg_mutual <- scalenodes(degree(graph_mutual), min_size_node, max_size_node)
+
+par(mar = c(0,0,0,0))
+plot(graph_mutual,
+     vertex.size = nodesize_deg_mutual,
+     vertex.label = ifelse(degree(graph_mutual) < max(degree(graph_mutual)) & 
+                             degree(graph_mutual) > min(degree(graph_mutual)), NA,
+                           V(graph_mutual)$name),
+     edge.color = "#C9C9C9",
+     vertex.color = ifelse (
+       degree(graph_mutual) < max(degree(graph_mutual)) &
+         degree(graph_mutual) > min(degree(graph_mutual)), "#FCCB51", "#C1F6BC"),
+     vertex.label.color = "#000000",
+     vertex.label.family = "Arial",
+     vertex.label.cex = 1,
+     edge.curved = .2)
+```
+
+We visualize this graph interactively.
+
+```{r}
+#replace size of each node with its degree
+vertex_attr(graph_mutual)$size <- nodesize_deg_mutual*5
+
+visIgraph(graph_mutual) %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1), 
+               nodesIdSelection = TRUE) %>%
+     visInteraction(keyboard = TRUE)
+```
+
+Take a look at Joshua. You can see that the size of his node in this visualization is considerably smaller than in previous graphs. Additionally, by zooming in, we can see his 5 mutual ties (Ian, Destiny, Thomas, Taylor, and Talliea).
+
+As this example demonstrates, even seemingly small variations in calculating and conceptualizing types of degree centrality can lead to qualitatively different conclusions, so it is important to carefully choose the appropriate measures for your research questions.
+
+## Eigenvector Centrality
+
+Let's next calculate eigenvector centrality, which captures how well-connected a node is to other well-connected nodes. For our example, it seems sensible to calculate eigenvector centrality using in-degree (i.e., for incoming ties), because we are interested in measuring prestige. 
+
+As in previous examples, let's first take a look at the eigenvector centrality values, which we sort from smallest to largest.
+
+```{r}
+sort(eigen_centrality(graph, directed = TRUE)$vector)
+```
+
+Take a look at Natalie. Recall that she has the smallest degree centrality for all types of degree centrality that we calculated. However, when calculating eigenvector centrality, we see that Natalie is not the lowest-ranked person. Why is this the case? Let's see if visualizing the network helps us figure out the reason. We give the nodes sizes that correspond to their eigenvector centralities, and we label and color in green the inividuals with the largest and smallest eigenvector centrality values.
+
+```{r}
+nodesize_eigen <- scalenodes(eigen_centrality(graph,directed=TRUE)$vector, min_size_node, max_size_node)
+
+par(mar = c(0,0,0,0))
+
+plot(graph,
+     vertex.size = nodesize_eigen,
+     edge.color = "#C9C9C9",
+     vertex.color = ifelse (
+       eigen_centrality(graph,directed = TRUE)$vector < 1.00 &
+         eigen_centrality(graph,directed = TRUE)$vector > 0.02062163, "#FCCB51", "#C1F6BC"),
+     vertex.label = ifelse(eigen_centrality(graph,directed = TRUE)$vector < 0.99 &
+                             eigen_centrality(graph,directed = TRUE)$vector > 0.02062163, NA,
+                           V(graph)$name),
+     vertex.label.family = "Arial",
+     vertex.label.font = 2,
+     vertex.label.cex = 1,
+     edge.curved = .2)
+```
+
+We see that the individuals with the smallest eigenvector centralities are those who are friends with one another, but are not well-connected to well-connected others. Destiny has the largest eigenvector centrality, as she is well-connected to well-connected others.
+
+Let's take a look at the interactive graph, which allows us to select individuals and zoom in on them.
+
+```{r}
+#replace size of each node with its eigenvector centrality
+vertex_attr(graph)$size <- nodesize_eigen*5
+
+visIgraph(graph) %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1), 
+               nodesIdSelection = TRUE) %>%
+     visInteraction(keyboard = TRUE)
+```
+
+We can see that Destiny is a popular person in a popular group. Notice that Natalie's node is larger than those of Anna, Damien, Cameron, Alec, Amber, Amy, and Christopher. This indicates that her eigenvector centrality is larger than those of these other people. However, when we look at in-degree centrality alone, we see that each of these individuals has a larger in-degree value than Natalie. 
+
+```{r}
+degree(graph, mode = c("in"), c("Damien"))
+```
+
+For example, take a look at Damien. Damien has an in-degree of 11, which is larger than Natalie's in-degree (which we recall is 2). However, Damien's eigenvector centrality value is smaller than Natalie's.
+
+```{r}
+eigen_centrality_values <- eigen_centrality(graph, directed = TRUE)$vector
+eigen_centrality_values[c("Damien")]
+eigen_centrality_values[c("Natalie")]
+```
+
+This is the case because Natalie is well-connected with well-connected others. (In this case, her two friends are Destiny and Dylan, who are well-connected.) Another way to think about this is that Natalie is friends with the most popular person (i.e., Destiny) in the most popular group in the network.
+
+The members of the network with the smallest eigenvector centrality values are people who seem to be in a group by themselves. These people are friends with one another, but they are not well-connected to well-connected others. Another way to think about this is that these individuals are part of an unpopular friendship group in the network. Through this example, we can see that eigenvector centrality gives information that is not captured by degree centrality (which counts the number of friends of an individual).
+
+Let's look at one more example that demonstrates that eigenvector centrality gives information that is not captured by degree centrality. Consider Bryce and Jessica, who have the same in-degree centrality of 12.
+
+```{r}
+degree(graph, mode = c("in"), c("Bryce"))
+degree(graph, mode = c("in"), c("Jessica"))
+```
+
+However, their eigenvector centralities differ rather substantially.
+
+```{r}
+eigen_centrality_values[c("Bryce")]
+eigen_centrality_values[c("Jessica")]
+```
+
+Bryce has an eigenvector centrality value of only 0.045, whereas Jessica has an eigenvector centrality value of 0.408, which is almost 10 times larger. What is happening in this example?
+
+Go back to the interactive graph, and use the drop-down menu to look at what happens when you select Bryce and then Jessica. You can see that none of Bryce's connections are well-connected to well-connected others (they are friends with one another in the unpopular group), whereas Jessica's connections are well-connected to well-conneted others (they are friends with people in the popular group). 
+
+These examples highlight the importance of being driven by one's research questions to select which network measures are most appropriate, as well as carefully considering the inferences that one can draw from these measures.
+
+## PageRank Centrality
+
+We also calculate PageRank centrality, which is a variation of eigenvector centrality that has been used most famously for ranking search results on the World Wide Web. A node tends to have a large PageRank centrality if it has large in-degree (i.e., many nodes point to it) and if the in-edges are from nodes that themselves have large in-degrees. The difference between PageRank centrality and eigenvector centrality is that the former incorporates an additional "teleportation" factor that augments the network structure. By default, the igraph package uses the "PRPACK" library for its algorithm. More information on the algorithm used is available at https://igraph.org/r/doc/page_rank.html and https://github.com/dgleich/prpack. 
+
+Let's start by sorting the PageRank centrality values from smallest to largest. We use the default teleportation strategy (which allows teleportation to all nodes, with the same probability for each node), with the default teleportation probability of 0.15.
+
+```{r}
+sort(page_rank(graph,directed = TRUE)$vector)
+```
+
+Note that Natalie has the smallest PageRank centrality value, although we just saw in in Section 4.2 that she does not have the smallest eigenvector centrality value. This arises from the presence of teleportation in calculating PageRank centrality. To explore this difference further, one can recalculate PageRank for teleportation probabilities that are progressively closer to 0.
+
+Let's visualize the network, with the node sizes reflecting the sizes of the PageRank centrality values. We label and color in green the nodes with the smallest and largest PageRank centrality values.
+
+```{r}
+nodesize_pagerank <- scalenodes(page_rank(graph,directed = TRUE)$vector, min_size_node, max_size_node)
+
+par(mar = c(0,0,0,0))
+
+plot(graph,
+     vertex.size = nodesize_pagerank,
+     edge.color = "#C9C9C9",
+     vertex.color = ifelse (
+       page_rank(graph, directed = TRUE)$vector < max(page_rank(graph, directed = TRUE)$vector) &
+         page_rank(graph, directed = TRUE)$vector > min(page_rank(graph, directed = TRUE)$vector), 
+           "#FCCB51", "#C1F6BC"),
+     vertex.label = ifelse(
+       page_rank(graph, directed = TRUE)$vector <
+         max(page_rank(graph, directed = TRUE)$vector) &
+         page_rank(graph, directed = TRUE)$vector >
+         min(page_rank(graph, directed = TRUE)$vector), NA, V(graph)$name),
+     vertex.label.family = "Arial",
+     vertex.label.font = 2,
+     vertex.label.cex = 1,
+     edge.curved = .2)
+```
+
+We also plot the graph interactively. The sizes of the nodes reflect their PageRank centrality values.
+
+```{r}
+#replace size of each node with its pagerank centrality
+vertex_attr(graph)$size <- nodesize_pagerank*5
+
+visIgraph(graph) %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1), 
+               nodesIdSelection = TRUE) %>%
+     visInteraction(keyboard = TRUE)
+```
+
+## Betweenness Centrality
+
+Let's next calculate (geodesic) betweenness centrality, which measures the extent to which shortest paths between nodes traverse a node. We start by sorting nodes according to their betweenness centralities.
+
+```{r}
+sort(betweenness(graph,directed = TRUE))
+```
+
+There are multiple people who have a between centrality value of 0, indicating that they do not lie on a shortest path between any other two nodes in the network. Observe that Destiny does not have the largest betweenness centrality value, even though she has the largest in-degree, out-degree, eigenvector, and PageRank centrality values.
+
+Let's visualize the graph, with the node sizes now reflecting their betweenness centrality values. We label and color in green the nodes with the smallest and largest betweenness centrality values.
+
+```{r}
+nodesize_betweenness <- scalenodes(betweenness(graph,directed = TRUE), min_size_node, max_size_node)
+
+par(mar = c(0,0,0,0))
+
+plot(graph,
+     vertex.size = nodesize_betweenness,
+     edge.color = "#C9C9C9",
+     vertex.color = ifelse (
+       betweenness(graph) < max(betweenness(graph)) &
+         betweenness(graph) > min(betweenness(graph)), "#FCCB51", "#C1F6BC"),
+     vertex.label.color = "#000000",
+     vertex.label = ifelse(betweenness(graph) < max(betweenness(graph)) & betweenness(graph) > min(betweenness(graph)), NA,
+                           V(graph)$name),
+     vertex.label.family = "Arial",
+     vertex.label.font = 2,
+     vertex.label.cex = 1,
+     edge.curved = .2)
+```
+
+Notice how Natalie, Amy, Damien, and Alec do not appear to be connected directly to different groups of friends. However, Derek seems to play an important role in connecting two different groups of friends. We will make this observation clearer by looking at the graph interactively.
+
+```{r}
+#replace size of each node with its betweenness
+vertex_attr(graph)$size <- nodesize_betweenness*5
+
+visIgraph(graph) %>%
+  visOptions(highlightNearest = list(enabled = TRUE, degree = 1),
+               nodesIdSelection = TRUE) %>%
+     visInteraction(keyboard = TRUE)
+```
+
+Let's take a look at Derek. Derek has the largest betweenness centrality, but his eigenvector centrality is near the median value.
+
+```{r}
+sort(eigen_centrality_values)
+```
+
+Derek has an eigenvector centrality value of 0.427, which is neither near the largest value nor near the smallest one. Therefore, although Derek seems to be friends with people who are not friends with one another, he isn't necessarily well-connected to well-connected others. As this example demonstrates, it is possible for individuals who have large betweenness centrality to be on the periphery of multiple friendship groups.
+
+This example again highlights that different centrality measures capture different aspects of importance in a network, and it is important to carefully consider your research questions when determining which centrality measures to study.
+
+# Community Detection
+
+We next identify communities in the network. As we noted in the main text of the paper, there are numerous algorithms that one can use for community detection. Although an in-depth overview of available algorithms is beyond the scope of the main manuscript text and this tutorial, we discuss two different algorithms that are readily available.
+
+Let's first detect communities using the "fast greedy" method that uses the Clauset--Newman--Moore algorithm. This algorithm seeks to maximize an objective function known as "modularity", which measures the extent to which nodes in a community connect densely with each other compared to their connections with nodes in other densely connected communities. For simplicity, we use a version of our network that consists of only reciprocated ties. (We also note that that this algorithm is an outdated approach for maximizing modularity, and our presentation is only an illustration.)
+
+We label communities by coloring the nodes, and we use a colored circle to indicate the community of each node.
+
+One potentially interesting question is where Derek, our large-betweenness-centrality person who connects multiple friendship groups, is assigned to communities by different community-detection algorithms. We label his node so that it is easier to track.
+
+```{r}
+size <- rep(25,50)
+vertex_attr(graph_mutual)$size <- size
+
+par(mar = c(0,0,0,0))
+communities <- fastgreedy.community(graph_mutual)
+
+community_colors <- c("#D7F0C9", "#BCF4F6", "#F6DFBC")[membership(communities)]
+
+plot(communities, graph_mutual, 
+     vertex.label = ifelse(
+       V(graph)$name==c("Derek"), V(graph)$name, NA),
+     col = community_colors,
+     vertex.label.family = "Arial",
+     vertex.label.color = "#000000")
+```
+
+The fast greedy algorithm identifies 3 communities in our network, and this algorithm assigns Derek to the community of rather secluded, "less-popular" nodes (which we indicate in blue).
+
+Let's now try a different community-detection algorithm and see if we get similar results. We use the iterative edge-betweenness algorithm of Girvan and Newman (2002), another outdated approach that we again use only to illustrate the basic idea of community detection. The idea of this approach is that nodes that belong to separate communities (in our case, friendship groups) tend to be connected, in principle, through edges that have large values of edge betweenness, because these edges tend to be on shortest paths.
+
+```{r}
+par(mar = c(0,0,0,0))
+communities <- cluster_edge_betweenness(graph_mutual)
+
+community_colors <- c("#D7F0C9", "#BCF4F6", "#F6DFBC")[membership(communities)]
+
+plot(communities, graph_mutual, 
+     vertex.label = ifelse(
+       V(graph)$name==c("Derek"), V(graph)$name, NA),
+     col = community_colors,
+     vertex.label.family = "Arial",
+     vertex.label.color = "#000000")
+```
+
+This algorithm also identifies 3 communities, but now Derek is assigned to the largest community (a "popular crowd"), which we indicate in light blue.
+
+These examples again highlight the importance of being mindful of the decisions that we make, as different algorithms give different answers. Because a detailed review of the different algorithms for community detection (and a detailed review of other network calculations) is beyond the scope of this tutorial, we point to additional resources in Section 6.
+
+# Additional Resources
+
+In this section, we encourage interested researchers to seek additional resources on network analysis for more in-depth treatments of the concepts that we introduced in this tutorial.
+
+## Additional Information on Community-Detection Algorithms used by igraph in R
+
+* *A Comparative Analysis of Community Detection Algorithms on Artificial Networks* by Yang, Algesheimer & Tessone (2016) compares the different community-detection algorithms that are used in igraph. The paper is available at https://www.nature.com/articles/srep30750.
+
+## Analyzing and Visualizing Networks
+
+The present tutorial focused on igraph and a complementary package (visNetwork) for interactive visualization in R. 
+
+Github repositories by the authors of these packages are available at the following websites.
+
+* *igraph*: https://github.com/igraph/igraph.
+
+* *visNetwork*: https://datastorm-open.github.io/visNetwork/.
+
+There are also many other tools that are available for researchers who are interested in analyzing and visualizing networks. We indicate a few of them here.
+
+* *R Programming* by Jared Lander consists of beginner-friendly video instructions for programming in R. Lesson 21 on Network Analysis may be of particular interest. It is available at http://shop.oreilly.com/product/0636920006119.do.
+
+* *Gephi* is an open-source GUI-based software for network visualization and exploration. For more information, see https://gephi.org/.
+
+* *NetworkX* is an open-source Python package for creating, manipulating, and studying the structure, dynamics, and functions of networks. For more information, see https://networkx.github.io/.
+
+* *Statnet* is another software package for network analysis and visualization. Interested users can download the Statnet package in R or use a graphical user interface in a web browser. For more information, including tutorials, see https://statnet.org/trac.
+
+* *MuxViz* is a tool for the visualization and analysis of multilayer networks; it uses a uses a graphical user interface. Additional information is available at https://github.com/manlius/muxViz.
