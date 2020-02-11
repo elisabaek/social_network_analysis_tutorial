@@ -200,7 +200,7 @@ As these examples demonstrate, the same network can look very different dependin
 
 # Centrality Measures
 
-As we discussed in the main body of the paper, there are mmany notions of centrality (i.e., importance) in a network. Different centrality measures are helpful for different questions, and it is important to select the measures that best fit your research questions.
+As we discussed in the main body of the paper, there are many notions of centrality (i.e., importance) in a network. Different centrality measures are helpful for different questions, and it is important to select the measures that best fit your research questions.
 
 ## Degree Centrality
 
